@@ -4,12 +4,15 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\BarangResource\Pages;
 use App\Filament\Resources\BarangResource\RelationManagers;
+use App\Filament\Resources\BarangResource\RelationManagers\PemesanansRelationManagerRelationManager;
 use App\Models\Barang;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Columns\IconColumn;
@@ -181,10 +184,58 @@ class BarangResource extends Resource
             ]);
     }
 
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                TextEntry::make('nama_barang')
+                    ->label('Nama Barang')
+                    ->size(TextEntry\TextEntrySize::Large)
+                    ->weight('bold'),
+
+                TextEntry::make('supplier.nama_supplier')
+                    ->label('Supplier')
+                    ->badge()
+                    ->color('primary'),
+
+                TextEntry::make('harga')
+                    ->label('Harga')
+                    ->money('IDR')
+                    ->size(TextEntry\TextEntrySize::Large),
+
+                TextEntry::make('stok')
+                    ->label('Stok Tersedia')
+                    ->badge()
+                    ->color(
+                        fn(string $state, Barang $record): string =>
+                        $state <= $record->level_minimum ? 'danger' : ($state <= $record->level_minimum * 2 ? 'warning' : 'success')
+                    )
+                    ->size(TextEntry\TextEntrySize::Large)
+                    ->weight('bold'),
+
+                TextEntry::make('level_minimum')
+                    ->label('Level Minimum')
+                    ->badge()
+                    ->color('warning'),
+
+                TextEntry::make('needs_restock')
+                    ->label('Status Stok')
+                    ->badge()
+                    ->color(
+                        fn(Barang $record): string =>
+                        $record->stok <= $record->level_minimum ? 'danger' : 'success'
+                    )
+                    ->formatStateUsing(
+                        fn(Barang $record): string =>
+                        $record->stok <= $record->level_minimum ? 'STOK RENDAH - PERLU RESTOCK' : 'STOK AMAN'
+                    ),
+            ]);
+    }
+
     public static function getRelations(): array
     {
         return [
-            //
+            PemesanansRelationManagerRelationManager::class,
         ];
     }
 
@@ -193,6 +244,7 @@ class BarangResource extends Resource
         return [
             'index' => Pages\ListBarangs::route('/'),
             'create' => Pages\CreateBarang::route('/create'),
+            'view' => Pages\ViewBarang::route('/{record}'),
             'edit' => Pages\EditBarang::route('/{record}/edit'),
         ];
     }
