@@ -7,6 +7,7 @@ use App\Models\Laporan;
 use App\Models\Pemesanan;
 use App\Models\Supplier;
 use App\Models\TransaksiPenjualan;
+use App\Models\User;
 use App\Observers\BarangObserver;
 use App\Observers\PemesananObserver;
 use App\Observers\TransaksiPenjualanObserver;
@@ -17,6 +18,7 @@ use App\Policies\PermissionPolicy;
 use App\Policies\RolePolicy;
 use App\Policies\SupplierPolicy;
 use App\Policies\TransaksiPenjualanPolicy;
+use App\Policies\UserPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Spatie\Permission\Models\Permission;
@@ -50,5 +52,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Pemesanan::class, PemesananPolicy::class);
         Gate::policy(Laporan::class, LaporanPolicy::class);
         Gate::policy(TransaksiPenjualan::class, TransaksiPenjualanPolicy::class);
+        Gate::policy(User::class, UserPolicy::class);
     }
 }
