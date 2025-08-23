@@ -9,6 +9,10 @@ class Pemesanan extends Model
 {
     protected $fillable = ['barang_id', 'supplier_id', 'tgl_pesanan', 'status'];
 
+    protected $casts = [
+        'tgl_pesanan' => 'date',
+    ];
+
     public function barang(): BelongsTo
     {
         return $this->belongsTo(Barang::class);

@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Models\Laporan;
 use App\Models\Pemesanan;
 use App\Models\TransaksiPenjualan;
 use Filament\Notifications\Notification;
@@ -15,6 +16,14 @@ class TransaksiPenjualanObserver
         $stokBaru = $barang->stok - $transaksiPenjualan->jumlah;
         
         $barang->update(['stok' => $stokBaru]);
+        
+        // Buat laporan penjualan
+        Laporan::create([
+            'barang_id' => $barang->id,
+            'jenis_laporan' => 'penjualan',
+            'tanggal' => $transaksiPenjualan->tanggal,
+            'isi_laporan' => "Terjual {$transaksiPenjualan->jumlah} unit. Total penjualan: Rp " . number_format($transaksiPenjualan->total, 0, ',', '.'),
+        ]);
         
         // Cek apakah stok mencapai level minimum
         if ($stokBaru <= $barang->level_minimum) {
@@ -50,5 +59,12 @@ class TransaksiPenjualanObserver
         $stokBaru = $barang->stok + $transaksiPenjualan->jumlah;
         
         $barang->update(['stok' => $stokBaru]);
+        
+        // Hapus laporan penjualan terkait
+        Laporan::where('barang_id', $barang->id)
+            ->where('jenis_laporan', 'penjualan')
+            ->where('tanggal', $transaksiPenjualan->tanggal)
+            ->where('isi_laporan', 'like', "Terjual {$transaksiPenjualan->jumlah} unit. Total penjualan: %")
+            ->delete();
     }
 }

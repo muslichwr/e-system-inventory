@@ -8,6 +8,7 @@ use App\Models\Pemesanan;
 use App\Models\Supplier;
 use App\Models\TransaksiPenjualan;
 use App\Observers\BarangObserver;
+use App\Observers\PemesananObserver;
 use App\Observers\TransaksiPenjualanObserver;
 use App\Policies\BarangPolicy;
 use App\Policies\LaporanPolicy;
@@ -38,6 +39,10 @@ class AppServiceProvider extends ServiceProvider
     {
         TransaksiPenjualan::observe(TransaksiPenjualanObserver::class);
         Barang::observe(BarangObserver::class);
+        Pemesanan::observe(PemesananObserver::class);
+
+
+
         Gate::policy(Permission::class, PermissionPolicy::class);
         Gate::policy(Role::class, RolePolicy::class);
         Gate::policy(Barang::class, BarangPolicy::class);
@@ -45,6 +50,5 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Pemesanan::class, PemesananPolicy::class);
         Gate::policy(Laporan::class, LaporanPolicy::class);
         Gate::policy(TransaksiPenjualan::class, TransaksiPenjualanPolicy::class);
-
     }
 }
