@@ -6,24 +6,77 @@ use App\Filament\Resources\LaporanResource\Pages;
 use App\Filament\Resources\LaporanResource\RelationManagers;
 use App\Models\Laporan;
 use Filament\Forms;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Malzariey\FilamentDaterangepickerFilter\Filters\DateRangeFilter;
+use Filament\Tables\Actions\ExportAction;
+use pxlrbt\FilamentExcel\Actions\Tables\ExportAction as ExcelExportAction;
+use pxlrbt\FilamentExcel\Exports\ExcelExport;
 
 class LaporanResource extends Resource
 {
     protected static ?string $model = Laporan::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
+
+    protected static ?int $navigationSort = 4;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Laporan & Analisis';
+    }
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                //
+                Section::make('Detail Laporan')
+                    ->description('Isi informasi laporan inventaris')
+                    ->schema([
+                        Select::make('barang_id')
+                            ->label('Barang')
+                            ->relationship('barang', 'nama_barang')
+                            ->searchable()
+                            ->preload()
+                            ->required(),
+
+                        Select::make('jenis_laporan')
+                            ->label('Jenis Laporan')
+                            ->options([
+                                'stok' => 'Laporan Stok',
+                                'penjualan' => 'Laporan Penjualan',
+                            ])
+                            ->required()
+                            ->reactive()
+                            ->afterStateUpdated(fn(callable $set) => $set('isi_laporan', null)),
+
+                        DatePicker::make('tanggal')
+                            ->label('Tanggal Laporan')
+                            ->required()
+                            ->default(now()),
+
+                        Textarea::make('isi_laporan')
+                            ->label('Isi Laporan')
+                            ->required()
+                            ->rows(8)
+                            ->placeholder(fn(Forms\Get $get): string => match ($get('jenis_laporan')) {
+                                'stok' => 'Contoh: Stok saat ini: 15 unit. Stok kritis: 5 unit. Perkiraan habis dalam 3 hari.',
+                                'penjualan' => 'Contoh: Terjual 5 unit hari ini. Total penjualan minggu ini: 20 unit. Peningkatan penjualan 15% dari minggu lalu.',
+                                default => 'Silakan masukkan isi laporan sesuai jenis yang dipilih.'
+                            }),
+                    ])
+                    ->columns(2),
             ]);
     }
 
@@ -31,18 +84,71 @@ class LaporanResource extends Resource
     {
         return $table
             ->columns([
-                //
+                TextColumn::make('barang.nama_barang')
+                    ->label('Nama Barang')
+                    ->searchable()
+                    ->sortable()
+                    ->description(fn(Laporan $record): string => $record->barang->supplier->nama_supplier ?? ''),
+
+                TextColumn::make('tanggal')
+                    ->label('Tanggal')
+                    ->date('d M Y')
+                    ->sortable(),
+
+                TextColumn::make('jenis_laporan')
+                    ->label('Jenis')
+                    ->badge()
+                    ->color(fn(string $state): string => $state === 'stok' ? 'info' : 'success')
+                    ->formatStateUsing(fn(string $state): string => $state === 'stok' ? 'Stok' : 'Penjualan')
+                    ->sortable(),
+
+                TextColumn::make('isi_laporan')
+                    ->label('Ringkasan')
+                    ->limit(60)
+                    ->searchable()
+                    ->extraCellAttributes(['class' => 'max-w-xs']),
+
+                TextColumn::make('created_at')
+                    ->label('Dibuat Tanggal')
+                    ->dateTime('d M Y')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('tanggal', 'desc')
             ->filters([
-                //
+                SelectFilter::make('jenis_laporan')
+                    ->options([
+                        'stok' => 'Stok',
+                        'penjualan' => 'Penjualan',
+                    ])
+                    ->label('Jenis Laporan'),
+
+                SelectFilter::make('barang.supplier_id')
+                    ->relationship('barang.supplier', 'nama_supplier')
+                    ->label('Supplier'),
+
+                DateRangeFilter::make('tanggal')->alwaysShowCalendar()
+                    ->label('Rentang Tanggal'),
+
+                Filter::make('stok_kritis')
+                    ->label('Laporan Stok Kritis')
+                    ->query(fn(Builder $query): Builder => $query
+                        ->where('jenis_laporan', 'stok')
+                        ->where('isi_laporan', 'like', '%Stok kritis%')),
             ])
             ->actions([
+                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ])
+            ->emptyStateActions([
+                Tables\Actions\CreateAction::make()
+                    ->label('Buat Laporan Baru'),
             ]);
     }
 
@@ -58,6 +164,7 @@ class LaporanResource extends Resource
         return [
             'index' => Pages\ListLaporans::route('/'),
             'create' => Pages\CreateLaporan::route('/create'),
+            'view' => Pages\ViewLaporan::route('/{record}'),
             'edit' => Pages\EditLaporan::route('/{record}/edit'),
         ];
     }

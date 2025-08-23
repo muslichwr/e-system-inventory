@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\BarangResource\Pages;
 use App\Filament\Resources\BarangResource\RelationManagers;
+use App\Filament\Resources\BarangResource\RelationManagers\LaporansRelationManagerRelationManager;
 use App\Filament\Resources\BarangResource\RelationManagers\PemesanansRelationManagerRelationManager;
 use App\Models\Barang;
 use Filament\Forms;
@@ -236,6 +237,7 @@ class BarangResource extends Resource
     {
         return [
             PemesanansRelationManagerRelationManager::class,
+            LaporansRelationManagerRelationManager::class,
         ];
     }
 

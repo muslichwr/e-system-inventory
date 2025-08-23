@@ -72,13 +72,7 @@ class PemesanansRelationManagerRelationManager extends RelationManager
                         'rejected' => 'heroicon-o-x-circle',
                         default => 'heroicon-o-clock',
                     })
-                    ->extraCellAttributes(['class' => 'w-12'])
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'pending' => 'Pending',
-                        'approved' => 'Disetujui',
-                        'rejected' => 'Ditolak',
-                        'processed' => 'Diproses',
-                    }),
+                    ->extraCellAttributes(['class' => 'w-12']),
                 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Dibuat Tanggal')
