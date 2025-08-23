@@ -56,6 +56,7 @@ class AdminPanelProvider extends PanelProvider
                 Authenticate::class,
             ])
              ->databaseNotifications()
-            ->plugin(FilamentSpatieRolesPermissionsPlugin::make());
+            ->plugin(FilamentSpatieRolesPermissionsPlugin::make())
+            ->spa();
     }
 }

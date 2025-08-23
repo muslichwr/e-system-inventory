@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Exports\LaporanExporter;
 use App\Filament\Resources\LaporanResource\Pages;
 use App\Filament\Resources\LaporanResource\RelationManagers;
 use App\Models\Laporan;
@@ -140,6 +141,9 @@ class LaporanResource extends Resource
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
+            ])
+            ->headerActions([
+                ExportAction::make()->exporter(LaporanExporter::class)
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
