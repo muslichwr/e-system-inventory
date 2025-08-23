@@ -11,6 +11,8 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
@@ -33,7 +35,7 @@ class TransaksiPenjualanResource extends Resource
     }
 
     public static function form(Form $form): Form
-    {
+{
         return $form
             ->schema([
                 Section::make('Detail Transaksi')
@@ -46,11 +48,12 @@ class TransaksiPenjualanResource extends Resource
                             ->preload()
                             ->required()
                             ->reactive()
-                            ->afterStateUpdated(function (callable $set, $state) {
+                            ->afterStateUpdated(function (Set $set, $state) {
                                 $barang = \App\Models\Barang::find($state);
                                 if ($barang) {
                                     $set('harga_jual', $barang->harga);
                                     $set('jumlah', 1);
+                                    $set('max_stok', $barang->stok); // Simpan stok maksimal
                                 }
                             }),
 
@@ -68,10 +71,24 @@ class TransaksiPenjualanResource extends Resource
                             ->numeric()
                             ->minValue(1)
                             ->reactive()
-                            ->afterStateUpdated(function (callable $set, $state, $get) {
+                            ->afterStateUpdated(function (Set $set, Get $get, $state) {
                                 $harga = $get('harga_jual');
                                 $set('total', $harga * $state);
-                            }),
+                            })
+                            ->live() // Tambahkan live untuk validasi real-time
+                            ->rules([
+                                function (Get $get) {
+                                    return function (string $attribute, $value, \Closure $fail) use ($get) {
+                                        $barangId = $get('barang_id');
+                                        if (!$barangId) return;
+                                        
+                                        $barang = \App\Models\Barang::find($barangId);
+                                        if ($barang && $value > $barang->stok) {
+                                            $fail("Jumlah tidak boleh melebihi stok yang tersedia ({$barang->stok} unit).");
+                                        }
+                                    };
+                                }
+                            ]),
 
                         TextInput::make('total')
                             ->label('Total')
@@ -85,6 +102,11 @@ class TransaksiPenjualanResource extends Resource
                             ->label('Tanggal Penjualan')
                             ->required()
                             ->default(now()),
+                        
+                        // Field tersembunyi untuk menyimpan stok maksimal
+                        TextInput::make('max_stok')
+                            ->hidden()
+                            ->dehydrated(false),
                     ])
                     ->columns(2),
             ]);
