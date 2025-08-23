@@ -12,6 +12,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Form;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Infolist;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Columns\IconColumn;
@@ -139,14 +140,14 @@ class PemesananResource extends Resource
                         'processed' => 'Diproses',
                     ])
                     ->searchable(),
-                
+
                 SelectFilter::make('barang.supplier_id')
                     ->relationship('barang.supplier', 'nama_supplier')
                     ->label('Supplier'),
-                
+
                 Tables\Filters\Filter::make('pending_approval')
                     ->label('Perlu Persetujuan')
-                    ->query(fn (Builder $query): Builder => $query->where('status', 'pending')),
+                    ->query(fn(Builder $query): Builder => $query->where('status', 'pending')),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
@@ -155,22 +156,22 @@ class PemesananResource extends Resource
                     ->label('Setujui')
                     ->color('success')
                     ->icon('heroicon-o-check-circle')
-                    ->visible(fn (Pemesanan $record): bool => $record->status === 'pending')
+                    ->visible(fn(Pemesanan $record): bool => $record->status === 'pending')
                     ->requiresConfirmation()
                     ->action(function (Pemesanan $record) {
                         $record->update(['status' => 'approved']);
                     }),
-                
+
                 Tables\Actions\Action::make('reject')
                     ->label('Tolak')
                     ->color('danger')
                     ->icon('heroicon-o-x-circle')
-                    ->visible(fn (Pemesanan $record): bool => $record->status === 'pending')
+                    ->visible(fn(Pemesanan $record): bool => $record->status === 'pending')
                     ->requiresConfirmation()
                     ->action(function (Pemesanan $record) {
                         $record->update(['status' => 'rejected']);
                     }),
-                
+
                 Tables\Actions\Action::make('process')
                     ->label('Proses')
                     ->color('info')
@@ -178,11 +179,28 @@ class PemesananResource extends Resource
                     ->visible(fn (Pemesanan $record): bool => $record->status === 'approved')
                     ->requiresConfirmation()
                     ->action(function (Pemesanan $record) {
-                        // Update stok barang setelah pesanan diproses
+                        // Hitung jumlah tambahan berdasarkan level minimum
                         $barang = $record->barang;
-                        $barang->update(['stok' => $barang->stok + 10]); // Contoh tambah stok 10
-                        
+                        $targetStok = $barang->level_minimum + 10; // Target stok = level minimum + 10
+                        $jumlahTambahan = max(0, $targetStok - $barang->stok);
+
+                        // Jika tidak perlu tambahan stok (sudah melebihi target), gunakan nilai default 10
+                        if ($jumlahTambahan === 0) {
+                            $jumlahTambahan = 10;
+                        }
+
+                        // Update stok barang
+                        $barang->update(['stok' => $barang->stok + $jumlahTambahan]);
+
+                        // Update status pesanan
                         $record->update(['status' => 'processed']);
+
+                        // Tampilkan notifikasi sukses
+                        Notification::make()
+                            ->title('Pesanan diproses')
+                            ->success()
+                            ->body("Stok {$barang->nama_barang} berhasil ditambahkan sebanyak {$jumlahTambahan} unit")
+                            ->send();
                     }),
             ])
             ->bulkActions([
@@ -192,7 +210,7 @@ class PemesananResource extends Resource
             ]);
     }
 
-        public static function infolist(Infolist $infolist): Infolist
+    public static function infolist(Infolist $infolist): Infolist
     {
         return $infolist
             ->schema([
@@ -200,36 +218,36 @@ class PemesananResource extends Resource
                     ->label('Nama Barang')
                     ->size(TextEntry\TextEntrySize::Large)
                     ->weight('bold'),
-                
+
                 TextEntry::make('barang.supplier.nama_supplier')
                     ->label('Supplier')
                     ->badge()
                     ->color('primary'),
-                
+
                 TextEntry::make('tgl_pesanan')
                     ->label('Tanggal Pesanan')
                     ->date('d F Y'),
-                
+
                 TextEntry::make('status')
                     ->label('Status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn(string $state): string => match ($state) {
                         'pending' => 'gray',
                         'approved' => 'success',
                         'rejected' => 'danger',
                         'processed' => 'info',
                     })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
                         'pending' => 'Pending - Perlu Persetujuan',
                         'approved' => 'Disetujui',
                         'rejected' => 'Ditolak',
                         'processed' => 'Telah Diproses',
                     }),
-                
+
                 TextEntry::make('created_at')
                     ->label('Dibuat')
                     ->dateTime('d F Y H:i'),
-                
+
                 TextEntry::make('updated_at')
                     ->label('Terakhir Diupdate')
                     ->dateTime('d F Y H:i'),
