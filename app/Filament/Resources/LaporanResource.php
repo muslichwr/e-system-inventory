@@ -142,9 +142,82 @@ class LaporanResource extends Resource
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])
-            ->headerActions([
-                ExportAction::make()->exporter(LaporanExporter::class)
-            ])
+        ->headerActions([
+            Tables\Actions\Action::make('generatePeriodicReport')
+                ->label('Buat Laporan Periodik')
+                ->color('primary')
+                ->icon('heroicon-o-document-text')
+                ->form([
+                    Forms\Components\Select::make('report_type')
+                        ->label('Jenis Laporan')
+                        ->options([
+                            'daily' => 'Harian',
+                            'weekly' => 'Mingguan',
+                            'monthly' => 'Bulanan',
+                        ])
+                        ->required(),
+                    
+                    Forms\Components\DatePicker::make('start_date')
+                        ->label('Tanggal Mulai')
+                        ->required()
+                        ->default(now()->subDays(7)),
+                    
+                    Forms\Components\DatePicker::make('end_date')
+                        ->label('Tanggal Akhir')
+                        ->required()
+                        ->default(now()),
+                ])
+                ->action(function (array $data) {
+                    // Hitung total penjualan dalam periode
+                    $totalPenjualan = \App\Models\TransaksiPenjualan::whereBetween('tanggal', [$data['start_date'], $data['end_date']])
+                        ->sum('total');
+                    
+                    // Hitung jumlah transaksi
+                    $jumlahTransaksi = \App\Models\TransaksiPenjualan::whereBetween('tanggal', [$data['start_date'], $data['end_date']])
+                        ->count();
+                    
+                    // Hitung rata-rata transaksi
+                    $rataRata = $jumlahTransaksi > 0 ? $totalPenjualan / $jumlahTransaksi : 0;
+                    
+                    // Hitung produk terlaris
+                    $produkTerlaris = \App\Models\TransaksiPenjualan::select('barang_id', \Illuminate\Support\Facades\DB::raw('SUM(jumlah) as total_terjual'))
+                        ->whereBetween('tanggal', [$data['start_date'], $data['end_date']])
+                        ->groupBy('barang_id')
+                        ->orderBy('total_terjual', 'desc')
+                        ->with('barang')
+                        ->first();
+                    
+                    $namaProdukTerlaris = $produkTerlaris ? $produkTerlaris->barang->nama_barang . " ({$produkTerlaris->total_terjual} unit)" : 'Tidak ada';
+                    
+                    // Buat isi laporan
+                    $isiLaporan = "LAPORAN PENJUALAN PERIODE\n";
+                    $isiLaporan .= "Periode: {$data['start_date']} sampai {$data['end_date']}\n";
+                    $isiLaporan .= "Jenis: " . ucfirst($data['report_type']) . "\n\n";
+                    $isiLaporan .= "RINGKASAN KEUANGAN:\n";
+                    $isiLaporan .= "- Total Penjualan: Rp " . number_format($totalPenjualan, 0, ',', '.') . "\n";
+                    $isiLaporan .= "- Jumlah Transaksi: {$jumlahTransaksi}\n";
+                    $isiLaporan .= "- Rata-rata Transaksi: Rp " . number_format($rataRata, 0, ',', '.') . "\n\n";
+                    $isiLaporan .= "PRODUK TERLARIS:\n";
+                    $isiLaporan .= "- {$namaProdukTerlaris}\n";
+                    
+                    // Simpan ke database
+                    \App\Models\Laporan::create([
+                        'barang_id' => null, // Laporan periodik tidak terkait barang spesifik
+                        'jenis_laporan' => 'penjualan',
+                        'tanggal' => now(),
+                        'isi_laporan' => $isiLaporan,
+                    ]);
+                    
+                    \Filament\Notifications\Notification::make()
+                        ->title('Laporan Berhasil Dibuat')
+                        ->success()
+                        ->body('Laporan periodik telah ditambahkan ke daftar laporan')
+                        ->send();
+                }),
+            
+            // Export action yang sudah ada
+            ExportAction::make()->exporter(LaporanExporter::class)
+        ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
