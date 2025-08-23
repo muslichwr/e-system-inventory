@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Models\Pemesanan;
 use App\Models\TransaksiPenjualan;
 use Filament\Notifications\Notification;
 
@@ -15,19 +16,27 @@ class TransaksiPenjualanObserver
         
         $barang->update(['stok' => $stokBaru]);
         
-        // Kirim notifikasi jika stok mendekati level minimum
+        // Cek apakah stok mencapai level minimum
         if ($stokBaru <= $barang->level_minimum) {
-            $message = "Stok {$barang->nama_barang} kritis! ({$stokBaru} unit)";
+            // Buat pesanan ulang otomatis dalam status pending
+            Pemesanan::create([
+                'barang_id' => $barang->id,
+                'supplier_id' => $barang->supplier_id,
+                'tgl_pesanan' => now(),
+                'status' => 'pending'
+            ]);
             
-            // Kirim notifikasi ke semua pengguna dengan role yang sesuai
-            \App\Models\User::all()->each(function ($user) use ($message, $barang) {
+            // Kirim notifikasi ke semua pengguna
+            $message = "Pesanan ulang untuk {$barang->nama_barang} telah dibuat (stok kritis: {$stokBaru} unit)";
+            
+            \App\Models\User::all()->each(function ($user) use ($message) {
                 Notification::make()
-                    ->title('Stok Kritis')
+                    ->title('Pesanan Ulang Dibuat')
                     ->warning()
                     ->body($message)
                     ->actions([
                         \Filament\Notifications\Actions\Action::make('lihat')
-                            ->url(route('filament.admin.resources.barangs.edit', $barang))
+                            ->url(route('filament.admin.resources.pemesanans.index'))
                     ])
                     ->sendToDatabase($user);
             });
