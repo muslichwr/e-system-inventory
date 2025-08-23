@@ -19,6 +19,7 @@ use App\Policies\RolePolicy;
 use App\Policies\SupplierPolicy;
 use App\Policies\TransaksiPenjualanPolicy;
 use App\Policies\UserPolicy;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Spatie\Permission\Models\Permission;
@@ -43,7 +44,14 @@ class AppServiceProvider extends ServiceProvider
         Barang::observe(BarangObserver::class);
         Pemesanan::observe(PemesananObserver::class);
 
-
+        $this->app->booted(function () {
+            $schedule = $this->app->make(Schedule::class);
+            
+            // Jadwalkan pengecekan pesanan pending setiap hari jam 9 pagi
+            $schedule->command('reminder:pending-orders --check')
+                     ->dailyAt('09:00')
+                     ->withoutOverlapping();
+        });
 
         Gate::policy(Permission::class, PermissionPolicy::class);
         Gate::policy(Role::class, RolePolicy::class);
